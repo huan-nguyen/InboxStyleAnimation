@@ -1,5 +1,7 @@
 package net.huannguyen.inboxstyleanimation
 
+import android.arch.lifecycle.Observer
+import android.arch.lifecycle.ViewModelProviders
 import android.graphics.Rect
 import android.os.Bundle
 import android.support.v4.app.Fragment
@@ -7,6 +9,7 @@ import android.support.v4.view.animation.FastOutSlowInInterpolator
 import android.support.v7.widget.DividerItemDecoration
 import android.support.v7.widget.LinearLayoutManager
 import android.support.v7.widget.RecyclerView
+import android.support.v7.widget.RecyclerView.NO_POSITION
 import android.transition.ChangeBounds
 import android.transition.ChangeImageTransform
 import android.transition.ChangeTransform
@@ -14,17 +17,28 @@ import android.transition.Transition
 import android.transition.TransitionSet
 import android.view.LayoutInflater
 import android.view.View
+import android.view.View.GONE
+import android.view.View.VISIBLE
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.core.view.doOnPreDraw
+import kotlinx.android.synthetic.main.email_list.emailList
+import kotlinx.android.synthetic.main.email_list.progressBar
 import net.huannguyen.inboxstyleanimation.R.layout
+import net.huannguyen.inboxstyleanimation.State.InProgress
+import net.huannguyen.inboxstyleanimation.State.Success
+import kotlin.LazyThreadSafetyMode.NONE
 
 private val transitionInterpolator = FastOutSlowInInterpolator()
 private const val TRANSITION_DURATION = 300L
 private const val TAP_POSITION = "tap_position"
 
 class EmailListFragment : Fragment() {
-  private var tapPosition: Int = -1
+  private var tapPosition = NO_POSITION
+  private val emailAdapter = EmailAdapter()
+  private val viewModel: EmailListViewModel by lazy(NONE) {
+    ViewModelProviders.of(this).get(EmailListViewModel::class.java)
+  }
 
   override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
     return inflater.inflate(R.layout.email_list, container, false)
@@ -32,33 +46,55 @@ class EmailListFragment : Fragment() {
 
   override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
     super.onViewCreated(view, savedInstanceState)
+    tapPosition = savedInstanceState?.getInt(TAP_POSITION, NO_POSITION) ?: NO_POSITION
 
+    // May not be the best place to postpone transition. Just an example to demo how reenter transition works.
     postponeEnterTransition()
-    val recyclerView = view.findViewById<RecyclerView>(R.id.email_list)
-    with(recyclerView) {
+
+    with(emailList) {
       layoutManager = LinearLayoutManager(view.context)
       addItemDecoration(DividerItemDecoration(view.context, LinearLayoutManager.VERTICAL))
-      adapter = EmailAdapter()
+      adapter = emailAdapter
     }
 
-    exitTransition = SlideExplode().apply {
-      duration = TRANSITION_DURATION
-      interpolator = transitionInterpolator
-    }
+    if (viewModel.emails.value == null) viewModel.getEmails()
 
-    (view.parent as? ViewGroup)?.doOnPreDraw {
-      tapPosition = savedInstanceState?.getInt(TAP_POSITION, -1) ?: -1
-      val viewRect = Rect()
-      val layoutManager = recyclerView.layoutManager as LinearLayoutManager
-      layoutManager.findViewByPosition(tapPosition)?.getGlobalVisibleRect(viewRect)
+    viewModel.emails.observe(this,
+                             Observer<State> { state -> state?.let { render(state) } })
+  }
 
-      (exitTransition as Transition).epicenterCallback =
-          object : Transition.EpicenterCallback() {
-            override fun onGetEpicenter(transition: Transition): Rect {
-              return viewRect
-            }
+  private fun render(state: State) {
+    when (state) {
+      is InProgress -> {
+        emailList.visibility = GONE
+        progressBar.visibility = VISIBLE
+        startPostponedEnterTransition()
+      }
+
+      is Success -> {
+        emailList.visibility = VISIBLE
+        progressBar.visibility = GONE
+        emailAdapter.setData(state.data)
+        (view?.parent as? ViewGroup)?.doOnPreDraw {
+          exitTransition = SlideExplode().apply {
+            duration = TRANSITION_DURATION
+            interpolator = transitionInterpolator
           }
-      startPostponedEnterTransition()
+
+          val viewRect = Rect()
+          val layoutManager = emailList.layoutManager as LinearLayoutManager
+          layoutManager.findViewByPosition(tapPosition)?.getGlobalVisibleRect(viewRect)
+
+          (exitTransition as Transition).epicenterCallback =
+              object : Transition.EpicenterCallback() {
+                override fun onGetEpicenter(transition: Transition): Rect {
+                  return viewRect
+                }
+              }
+
+          startPostponedEnterTransition()
+        }
+      }
     }
   }
 
@@ -68,9 +104,15 @@ class EmailListFragment : Fragment() {
   }
 
   private inner class EmailAdapter : RecyclerView.Adapter<EmailViewHolder>() {
+    private var emails: List<String> = emptyList()
+
+    fun setData(emails: List<String>) {
+      this.emails = emails
+      notifyDataSetChanged()
+    }
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): EmailViewHolder =
-        EmailViewHolder(
-          LayoutInflater.from(parent.context).inflate(layout.email_item, parent, false))
+        EmailViewHolder(LayoutInflater.from(parent.context).inflate(layout.email_item, parent, false))
 
     override fun onBindViewHolder(holder: EmailViewHolder, position: Int) {
       fun expandHandler() {
@@ -102,16 +144,16 @@ class EmailListFragment : Fragment() {
         activity!!.supportFragmentManager
             .beginTransaction()
             .setReorderingAllowed(true)
-            .addSharedElement(holder.itemView, getString(R.string.transition_name))
             .replace(R.id.container, fragment)
             .addToBackStack(null)
+            .addSharedElement(holder.itemView, getString(R.string.transition_name))
             .commit()
       }
 
-      holder.bindData("Email ${position + 1}", ::expandHandler)
+      holder.bindData(emails[position], ::expandHandler)
     }
 
-    override fun getItemCount() = 17
+    override fun getItemCount() = emails.size
   }
 
   private class EmailViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
