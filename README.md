@@ -1,4 +1,3 @@
-# InboxStyleAnimation
 This demo shows an example of how to implement Google Inbox style animation in Android.
 
-![Demo Screenshot](./screenshots/demo.gif)
+<img src="./screenshots/demo.gif" width="400">
