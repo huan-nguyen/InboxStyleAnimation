@@ -89,9 +89,7 @@ class EmailListFragment : Fragment() {
             view.getGlobalVisibleRect(viewRect)
             (exitTransition as Transition).epicenterCallback =
                 object : Transition.EpicenterCallback() {
-                  override fun onGetEpicenter(transition: Transition): Rect {
-                    return viewRect
-                  }
+                  override fun onGetEpicenter(transition: Transition) = viewRect
                 }
           }
 
@@ -124,9 +122,7 @@ class EmailListFragment : Fragment() {
 
         (this@EmailListFragment.exitTransition as Transition).epicenterCallback =
             object : Transition.EpicenterCallback() {
-              override fun onGetEpicenter(transition: Transition): Rect {
-                return viewRect
-              }
+              override fun onGetEpicenter(transition: Transition) = viewRect
             }
 
         val sharedElementTransition = TransitionSet()
