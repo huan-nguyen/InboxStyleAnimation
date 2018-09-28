@@ -15,11 +15,11 @@ class EmailDetailsFragment : Fragment() {
   override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
     super.onViewCreated(view, savedInstanceState)
 
-    val content = view.findViewById<View>(R.id.details)
+    val content = view.findViewById<View>(R.id.content)
     content.alpha = 0f
 
     val animator = ObjectAnimator.ofFloat(content, View.ALPHA, 0f, 1f)
-    animator.startDelay = 100
+    animator.startDelay = 50
     animator.duration = 150
     animator.start()
   }

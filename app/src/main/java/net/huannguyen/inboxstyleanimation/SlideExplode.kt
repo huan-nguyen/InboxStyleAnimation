@@ -10,6 +10,10 @@ import android.view.ViewGroup
 
 private const val KEY_SCREEN_BOUNDS = "screenBounds"
 
+/**
+ * A simple Transition which allows the views above the epic centre to transition upwards and views
+ * below the epic centre to transition downwards.
+ */
 class SlideExplode : Visibility() {
   private val mTempLoc = IntArray(2)
 
@@ -39,7 +43,7 @@ class SlideExplode : Visibility() {
 
     val bounds = endValues.values[KEY_SCREEN_BOUNDS] as Rect
     val endY = view.translationY
-    val startY = endY + calculateOut(sceneRoot, bounds)
+    val startY = endY + calculateDistance(sceneRoot, bounds)
     return ObjectAnimator.ofFloat(view, View.TRANSLATION_Y, startY, endY)
   }
 
@@ -49,11 +53,11 @@ class SlideExplode : Visibility() {
 
     val bounds = startValues.values[KEY_SCREEN_BOUNDS] as Rect
     val startY = view.translationY
-    val endY = startY + calculateOut(sceneRoot, bounds)
+    val endY = startY + calculateDistance(sceneRoot, bounds)
     return ObjectAnimator.ofFloat(view, View.TRANSLATION_Y, startY, endY)
   }
 
-  private fun calculateOut(sceneRoot: View, viewBounds: Rect): Int {
+  private fun calculateDistance(sceneRoot: View, viewBounds: Rect): Int {
     sceneRoot.getLocationOnScreen(mTempLoc)
     val sceneRootY = mTempLoc[1]
     return when {

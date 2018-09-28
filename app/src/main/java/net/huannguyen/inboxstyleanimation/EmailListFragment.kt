@@ -35,6 +35,7 @@ private const val TAP_POSITION = "tap_position"
 
 class EmailListFragment : Fragment() {
   private var tapPosition = NO_POSITION
+  val viewRect = Rect()
   private val emailAdapter = EmailAdapter()
   private val viewModel: EmailListViewModel by lazy(NONE) {
     ViewModelProviders.of(this).get(EmailListViewModel::class.java)
@@ -76,21 +77,23 @@ class EmailListFragment : Fragment() {
         progressBar.visibility = GONE
         emailAdapter.setData(state.data)
         (view?.parent as? ViewGroup)?.doOnPreDraw {
-          exitTransition = SlideExplode().apply {
-            duration = TRANSITION_DURATION
-            interpolator = transitionInterpolator
+          if (exitTransition == null) {
+            exitTransition = SlideExplode().apply {
+              duration = TRANSITION_DURATION
+              interpolator = transitionInterpolator
+            }
           }
 
-          val viewRect = Rect()
           val layoutManager = emailList.layoutManager as LinearLayoutManager
-          layoutManager.findViewByPosition(tapPosition)?.getGlobalVisibleRect(viewRect)
-
-          (exitTransition as Transition).epicenterCallback =
-              object : Transition.EpicenterCallback() {
-                override fun onGetEpicenter(transition: Transition): Rect {
-                  return viewRect
+          layoutManager.findViewByPosition(tapPosition)?.let { view ->
+            view.getGlobalVisibleRect(viewRect)
+            (exitTransition as Transition).epicenterCallback =
+                object : Transition.EpicenterCallback() {
+                  override fun onGetEpicenter(transition: Transition): Rect {
+                    return viewRect
+                  }
                 }
-              }
+          }
 
           startPostponedEnterTransition()
         }
@@ -115,10 +118,8 @@ class EmailListFragment : Fragment() {
         EmailViewHolder(LayoutInflater.from(parent.context).inflate(layout.email_item, parent, false))
 
     override fun onBindViewHolder(holder: EmailViewHolder, position: Int) {
-      fun expandHandler() {
+      fun onViewClick() {
         tapPosition = position
-
-        val viewRect = Rect()
         holder.itemView.getGlobalVisibleRect(viewRect)
 
         (this@EmailListFragment.exitTransition as Transition).epicenterCallback =
@@ -150,20 +151,20 @@ class EmailListFragment : Fragment() {
             .commit()
       }
 
-      holder.bindData(emails[position], ::expandHandler)
+      holder.bindData(emails[position], ::onViewClick)
     }
 
     override fun getItemCount() = emails.size
   }
+}
 
-  private class EmailViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-    private var email: String? = null
+private class EmailViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+  private var email: String? = null
 
-    fun bindData(email: String, expandHandler: () -> Unit) {
-      this.email = email
-      itemView.setOnClickListener { expandHandler() }
-      itemView.transitionName = email
-      (itemView as TextView).text = email
-    }
+  fun bindData(email: String, expandHandler: () -> Unit) {
+    this.email = email
+    itemView.setOnClickListener { expandHandler() }
+    itemView.transitionName = email
+    (itemView as TextView).text = email
   }
 }
